@@ -9,8 +9,8 @@ import * as esbuild from 'esbuild-wasm';
 
 const App = () => {
     const [input,setInput] = useState('');
-    const [code,setCode] = useState('');
     const ref = useRef<any>();
+    const iframe = useRef<any>();
 
     const startService = async () => {
         ref.current = await esbuild.startService({
@@ -28,6 +28,7 @@ const App = () => {
             return;
         }
 
+        iframe.current.srcdoc = html;
         const result = await ref.current.build({
             entryPoints:['index.js'],
             bundle:true,
@@ -40,12 +41,32 @@ const App = () => {
         })
 
         
-        setCode(result.outputFiles[0].text);
+       
+        
+        iframe.current.contentWindow.postMessage(result.outputFiles[0].text,'*');
         
     }
     
     const html = `
-        <script>${code}</script>
+        <html>
+            <head></head>
+            <body>
+                <div id="root"></div>
+                <script>
+                    window.addEventListener('message', (event) => {
+                        try{
+                            eval(event.data);
+                        }
+                        catch(err){
+                            const root = document.querySelector('#root');
+                            root.innerHTML = '<h1>' + err + '</h1>';
+                            console.error(err);
+                        }
+                    }, false)
+                    
+                </script>
+            </body>
+        </html>
     `;
 
     return (
@@ -54,7 +75,7 @@ const App = () => {
             <div>
                 <button onClick={onClick}>Submit</button>
             </div>
-            <iframe sandbox='allow-scripts' srcDoc={html}></iframe>
+            <iframe title="code preview" ref={iframe} sandbox='allow-scripts' srcDoc={html}></iframe>
         </div>
     )
 }
